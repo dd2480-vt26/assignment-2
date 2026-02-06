@@ -5,10 +5,15 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.ServletException;
  
 import java.io.IOException;
+import java.util.stream.Collectors;
  
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.example.payload.PushPayload;
 
 /** 
  Skeleton of a ContinuousIntegrationServer which acts as webhook
@@ -27,6 +32,26 @@ public class ContinuousIntegrationServer extends AbstractHandler
         baseRequest.setHandled(true);
 
         System.out.println(target);
+        String jsonString = request.getReader().lines().collect(Collectors.joining("\n"));
+        ObjectMapper mapper = new ObjectMapper();
+
+        if (!jsonString.isBlank()) {
+            PushPayload payload = mapper.readValue(jsonString, PushPayload.class);
+            
+            String branch = payload.ref.replace("refs/heads/", "");
+            String cloneUrl = payload.repository.clone_url;
+            String repoName = payload.repository.full_name;
+            String commitSha = payload.after;
+
+            System.out.println("=== Incoming GitHub Push ===");
+            System.out.println("Branch: " + branch);
+            System.out.println("Clone URL: " + cloneUrl);
+            System.out.println("Repository: " + repoName);
+            System.out.println("Commit SHA: " + commitSha);
+            System.out.println("============================");
+        } else {
+            System.out.println("Received empty payload; skipping");
+        }
 
         // here you do all the continuous integration tasks
         // for example
