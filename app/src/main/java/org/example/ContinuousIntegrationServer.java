@@ -31,26 +31,22 @@ public class ContinuousIntegrationServer extends AbstractHandler
         response.setStatus(HttpServletResponse.SC_OK);
         baseRequest.setHandled(true);
 
-        System.out.println(target);
-        String jsonString = request.getReader().lines().collect(Collectors.joining("\n"));
-        ObjectMapper mapper = new ObjectMapper();
+        String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
+        ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
 
-        if (!jsonString.isBlank()) {
-            PushPayload payload = mapper.readValue(jsonString, PushPayload.class);
-            
-            String branch = payload.ref.replace("refs/heads/", "");
+        if (!jsonString.isBlank()) { // to ignore empty messages, seems like it can be solved by checking headers for push
+            PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
+
+            // Bellow is just example usage and for testing
+            String branch = payload.ref.replace("refs/heads/", ""); // replace refs/heads/branchName with the just branchName
             String cloneUrl = payload.repository.clone_url;
             String repoName = payload.repository.full_name;
             String commitSha = payload.after;
 
-            System.out.println("=== Incoming GitHub Push ===");
-            System.out.println("Branch: " + branch);
-            System.out.println("Clone URL: " + cloneUrl);
-            System.out.println("Repository: " + repoName);
-            System.out.println("Commit SHA: " + commitSha);
-            System.out.println("============================");
-        } else {
-            System.out.println("Received empty payload; skipping");
+            System.out.println("branch: " + branch);
+            System.out.println("clone URL: " + cloneUrl);
+            System.out.println("repository: " + repoName);
+            System.out.println("commit sha: " + commitSha);
         }
 
         // here you do all the continuous integration tasks
