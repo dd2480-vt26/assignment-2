@@ -34,6 +34,14 @@ public class UpdateGithubStatus {
      * @return A JSON string representing the commit status payload
      */
     public String buildJsonBody(String state, String targetUrl, String description, String context) {
+        
+        // If state is something other than error, failure, pending or success
+        if (!state.equals("error") && !state.equals("failure") 
+            && !state.equals("pending") && !state.equals("success")) {
+            throw new IllegalArgumentException("Invalid state: " + state + 
+                ". Must be one of: error, failure, pending, success");
+        }
+
         String jsonBody = String.format("""
             {
                 "state": "%s",

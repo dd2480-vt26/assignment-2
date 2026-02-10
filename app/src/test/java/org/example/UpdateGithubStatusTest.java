@@ -3,6 +3,7 @@ package org.example;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
@@ -48,6 +49,22 @@ public class UpdateGithubStatusTest {
         assertTrue(json.contains("\"target_url\": \"\""));
         assertTrue(json.contains("\"description\": \"\""));
         assertTrue(json.contains("\"context\": \"\""));
+    }
+
+    /**
+     * Negative test: {@code buildJsonBody} rejects invalid commit state strings.
+     * Test case: Provide a state string that is not one of "error", "failure", "pending", or "success".
+     * Expected: {@link IllegalArgumentException} is thrown with an appropriate error message.
+     */
+    @Test
+    void buildJsonBody_shouldThrowForInvalidState() {
+        UpdateGithubStatus updater = new UpdateGithubStatus("dummy-token");
+
+        String invalidState = "completed"; // An invalid state
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            updater.buildJsonBody(invalidState, "https://example.com", "Some description", "ci/test");
+        });
     }
 
     /**
