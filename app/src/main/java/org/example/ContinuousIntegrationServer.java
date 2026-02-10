@@ -25,12 +25,27 @@ public class ContinuousIntegrationServer extends AbstractHandler
                        Request baseRequest,
                        HttpServletRequest request,
                        HttpServletResponse response) 
-        throws IOException, ServletException
+        throws IOException
     {
         response.setContentType("text/html;charset=utf-8");
         response.setStatus(HttpServletResponse.SC_OK);
         baseRequest.setHandled(true);
 
+        switch (request.getMethod()) {
+            case "PUT":
+                handlePUT(request);
+                break;
+
+            case "GET":
+                handleGET(target, response);
+                break;
+
+            default:
+                break;
+        }
+    }
+ 
+    public void handlePUT(HttpServletRequest request) throws IOException {
         String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
 
@@ -48,15 +63,10 @@ public class ContinuousIntegrationServer extends AbstractHandler
             System.out.println("repository: " + repoName);
             System.out.println("commit sha: " + commitSha);
         }
-
-        // here you do all the continuous integration tasks
-        // for example
-        // 1st clone your repository
-        // 2nd compile the code
-
-        response.getWriter().println("CI job done");
     }
- 
+
+    public void handleGET(String target, HttpServletResponse response) throws IOException {
+    }
     // used to start the CI server in command line
     public static void main(String[] args) throws Exception
     {
