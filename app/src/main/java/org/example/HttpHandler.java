@@ -2,17 +2,12 @@ package org.example;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.ServletException;
- 
 import java.io.IOException;
 import java.util.stream.Collectors;
- 
-import org.eclipse.jetty.server.Server;
+import java.net.http.HttpResponse;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.example.payload.PushPayload;
 
 /**
@@ -24,6 +19,9 @@ import org.example.payload.PushPayload;
  */
 public class HttpHandler extends AbstractHandler
 {
+    private String configFileName = "config.properties";
+    private String token; // Personal access token for GitHub
+    
     /**
      * Handle incoming HTTP requests and dispatch by method.
      *
@@ -49,7 +47,11 @@ public class HttpHandler extends AbstractHandler
                 break;
 
             case "POST":
-                handlePOST(request);
+                try {
+                    handlePOST(request);
+                } catch (IOException | InterruptedException e) {
+                    e.printStackTrace();
+                }
                 break;
 
             case "GET":
@@ -76,8 +78,9 @@ public class HttpHandler extends AbstractHandler
      *
      * @param request servlet request
      * @throws IOException if reading request data fails
+     * @throws InterruptedException If the HTTP request is interrupted
      */
-    public void handlePOST(HttpServletRequest request) throws IOException {
+    public void handlePOST(HttpServletRequest request) throws IOException, InterruptedException {
         String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
 
@@ -94,6 +97,22 @@ public class HttpHandler extends AbstractHandler
             System.out.println("clone URL: " + cloneUrl);
             System.out.println("repository: " + repoName);
             System.out.println("commit sha: " + commitSha);
+
+            GithubUtils.CommitState status = GithubUtils.CommitState.FAILURE; // placeholder
+            String owner = repoName.split("/")[0];
+            String repo = repoName.split("/")[1];
+            String targetUrl = ""; // placeholder, should be URL to the build
+            String description = ""; // placeholder, optional description of the status
+            String context = ""; // placeholder, optional context name
+
+            HttpResponse<String> githubResponse = handleCommitStatus(owner, repo, commitSha, status, targetUrl, description, context);
+            int ci_status = githubResponse.statusCode();
+            if(ci_status == 201) {
+                System.out.println("CI job done");
+            } else {
+                System.out.println("CI job failed. Status: " + ci_status);
+            }
+
         }
     }
 
@@ -107,4 +126,35 @@ public class HttpHandler extends AbstractHandler
     public void handleGET(String target, HttpServletResponse response) throws IOException {
     }
 
+    /**
+     * Updates the status of a specific commit on GitHub.
+     * 
+     * This method ensures a GitHub token is loaded (from {@code config.properties}) if it hasn't been set already,
+     * then creates an {@link UpdateGithubStatus} instance to send the commit status update.
+     *
+     * @param owner GitHub repository owner 
+     * @param repo GitHub repository name
+     * @param sha Commit SHA to update the status for
+     * @param state The state of the commit status; valid values: "error", "failure", "pending", or "success"
+     * @param targetUrl Optional URL linking to more details about the status
+     * @param description Optional short description of the status
+     * @param context Optional context name to differentiate this status from others
+     * @return {@code HttpResponse} containing the response from GitHub
+     * @throws IOException If the GitHub token cannot be loaded or an I/O error occurs while sending the request
+     * @throws InterruptedException If the HTTP request is interrupted
+     */
+    public HttpResponse<String> handleCommitStatus(String owner, 
+                                   String repo, 
+                                   String sha, 
+                                   GithubUtils.CommitState state,
+                                   String targetUrl,
+                                   String description,
+                                   String context) throws IOException, InterruptedException {
+        
+        if (token == null || token.isBlank()) {
+            token = GithubUtils.loadToken(configFileName);
+        }
+
+        return GithubUtils.updateStatus(token, owner, repo, sha, state, targetUrl, description, context);
+    }
 }
