@@ -5,6 +5,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.stream.Collectors;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +22,7 @@ import org.example.payload.PushPayload;
  */
 public class HttpHandler extends AbstractHandler
 {
+    private static final Path ALL_REPOS_DIR = Path.of("repos");
     private String configFileName = "config.properties";
     private String token; // Personal access token for GitHub
     
@@ -82,37 +86,49 @@ public class HttpHandler extends AbstractHandler
      */
     public void handlePOST(HttpServletRequest request) throws IOException, InterruptedException {
         String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
+
+        if (jsonString.isBlank()) {
+            // to ignore empty messages, seems like it can be solved by checking headers for push
+            return;
+        }
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
+        PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
 
-        if (!jsonString.isBlank()) { // to ignore empty messages, seems like it can be solved by checking headers for push
-            PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
+        // --- Step 1. Clone the project ---
+        RepoCloner cloner = new RepoCloner();
+        String cloneUrl = payload.repository.clone_url;
+        final Path REPO_DIR = ALL_REPOS_DIR.resolve(payload.repository.full_name);
 
-            // Bellow is just example usage and for testing
-            String branch = payload.ref.replace("refs/heads/", ""); // replace refs/heads/branchName with the just branchName
-            String cloneUrl = payload.repository.clone_url;
-            String repoName = payload.repository.full_name;
-            String commitSha = payload.after;
+        if (Files.isDirectory(REPO_DIR)) {
+            new RepoCleanup().deleteRepo(REPO_DIR);
+            System.out.println("INFO: Repo existed on disk; deleting it");
+        }
+        Files.createDirectories(REPO_DIR);
+        cloner.runGitClone(cloneUrl, REPO_DIR);
 
-            System.out.println("branch: " + branch);
-            System.out.println("clone URL: " + cloneUrl);
-            System.out.println("repository: " + repoName);
-            System.out.println("commit sha: " + commitSha);
+        // Bellow is just example usage and for testing
+        String branch = payload.ref.replace("refs/heads/", ""); // replace refs/heads/branchName with the just branchName
+        String repoName = payload.repository.full_name;
+        String commitSha = payload.after;
 
-            GithubUtils.CommitState status = GithubUtils.CommitState.FAILURE; // placeholder
-            String owner = repoName.split("/")[0];
-            String repo = repoName.split("/")[1];
-            String targetUrl = ""; // placeholder, should be URL to the build
-            String description = ""; // placeholder, optional description of the status
-            String context = ""; // placeholder, optional context name
+        System.out.println("branch: " + branch);
+        System.out.println("clone URL: " + cloneUrl);
+        System.out.println("repository: " + repoName);
+        System.out.println("commit sha: " + commitSha);
 
-            HttpResponse<String> githubResponse = handleCommitStatus(owner, repo, commitSha, status, targetUrl, description, context);
-            int ci_status = githubResponse.statusCode();
-            if(ci_status == 201) {
-                System.out.println("CI job done");
-            } else {
-                System.out.println("CI job failed. Status: " + ci_status);
-            }
+        GithubUtils.CommitState status = GithubUtils.CommitState.FAILURE; // placeholder
+        String owner = repoName.split("/")[0];
+        String repo = repoName.split("/")[1];
+        String targetUrl = ""; // placeholder, should be URL to the build
+        String description = ""; // placeholder, optional description of the status
+        String context = ""; // placeholder, optional context name
 
+        HttpResponse<String> githubResponse = handleCommitStatus(owner, repo, commitSha, status, targetUrl, description, context);
+        int ci_status = githubResponse.statusCode();
+        if(ci_status == 201) {
+            System.out.println("CI job done");
+        } else {
+            System.out.println("CI job failed. Status: " + ci_status);
         }
     }
 
