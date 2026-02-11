@@ -114,6 +114,9 @@ public class HttpHandler extends AbstractHandler
         // --- Step 3: Build the project ---
         GradleBuildRunner.run(REPO_DIR);
 
+        // --- Step 4: Test the project ---
+        TestRunner.runTests(REPO_DIR.toFile());
+
         // Bellow is just example usage and for testing
         String repoName = payload.repository.full_name;
         String commitSha = payload.after;
