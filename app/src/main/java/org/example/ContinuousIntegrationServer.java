@@ -82,7 +82,7 @@ public class ContinuousIntegrationServer extends AbstractHandler
             System.out.println("repository: " + repoName);
             System.out.println("commit sha: " + commitSha);
 
-            String status = "failure"; // placeholder
+            GithubUtils.CommitState status = GithubUtils.CommitState.FAILURE; // placeholder
             String owner = repoName.split("/")[0];
             String repo = repoName.split("/")[1];
             String targetUrl = ""; // placeholder, should be URL to the build
@@ -120,7 +120,7 @@ public class ContinuousIntegrationServer extends AbstractHandler
     public HttpResponse<String> handleCommitStatus(String owner, 
                                    String repo, 
                                    String sha, 
-                                   String state, 
+                                   GithubUtils.CommitState state,
                                    String targetUrl,
                                    String description,
                                    String context) throws IOException, InterruptedException {

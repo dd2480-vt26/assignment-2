@@ -52,7 +52,7 @@ public class GithubUtilsTest {
      */
     @Test
     void buildJsonBody_shouldContainStateURlDescriptionAndContext() {
-        String json = GithubUtils.buildJsonBody("success",
+        String json = GithubUtils.buildJsonBody(GithubUtils.CommitState.SUCCESS,
                                             "https://example.com", 
                                             "Tests passed", 
                                             "ci/test");
@@ -70,7 +70,7 @@ public class GithubUtilsTest {
      */
     @Test
     void buildJsonBody_fieldsLeftEmptyWhenNotSpecified() {
-        String json = GithubUtils.buildJsonBody("success",
+        String json = GithubUtils.buildJsonBody(GithubUtils.CommitState.SUCCESS,
                                             null, 
                                             null, 
                                             null);
@@ -79,20 +79,6 @@ public class GithubUtilsTest {
         assertTrue(json.contains("\"target_url\": \"\""));
         assertTrue(json.contains("\"description\": \"\""));
         assertTrue(json.contains("\"context\": \"\""));
-    }
-
-    /**
-     * Negative test: {@code buildJsonBody} rejects invalid commit state strings.
-     * Test case: Provide a state string that is not one of "error", "failure", "pending", or "success".
-     * Expected: {@link IllegalArgumentException} is thrown with an appropriate error message.
-     */
-    @Test
-    void buildJsonBody_shouldThrowForInvalidState() {
-        String invalidState = "completed"; // An invalid state
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            GithubUtils.buildJsonBody(invalidState, "https://example.com", "Some description", "ci/test");
-        });
     }
 
     /**

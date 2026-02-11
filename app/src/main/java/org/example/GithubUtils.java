@@ -21,6 +21,26 @@ public class GithubUtils {
     public GithubUtils(String token) {
         this.token = token;
     }
+
+    /**
+     * Represents the possible commit status states supported by the GitHub API.
+     */
+    public enum CommitState {
+        ERROR("error"),
+        FAILURE("failure"),
+        PENDING("pending"),
+        SUCCESS("success");
+
+        private final String state;
+
+        CommitState(String state) {
+            this.state = state;
+        }
+
+        public String getStateString() {
+            return state;
+        }
+    }
     
     /**
      * Builds the JSON body for a commit status request.
@@ -31,15 +51,7 @@ public class GithubUtils {
      * @param context Optional context name to differentiate this status from others
      * @return A JSON string representing the commit status payload
      */
-    public static String buildJsonBody(String state, String targetUrl, String description, String context) {
-        
-        // If state is something other than error, failure, pending or success
-        if (!state.equals("error") && !state.equals("failure") 
-            && !state.equals("pending") && !state.equals("success")) {
-            throw new IllegalArgumentException("Invalid state: " + state + 
-                ". Must be one of: error, failure, pending, success");
-        }
-
+    public static String buildJsonBody(CommitState state, String targetUrl, String description, String context) {
         String jsonBody = String.format("""
             {
                 "state": "%s",
@@ -48,7 +60,7 @@ public class GithubUtils {
                 "context": "%s"
             }
             """, 
-            state,
+            state.getStateString(),
             targetUrl != null ? targetUrl : "",
             description != null ? description : "",
             context != null ? context : ""
@@ -107,7 +119,7 @@ public class GithubUtils {
     public HttpResponse<String> updateStatus(String owner, 
                              String repo, 
                              String sha, 
-                             String state, 
+                             CommitState state, 
                              String targetUrl,
                              String description,
                              String context) 
