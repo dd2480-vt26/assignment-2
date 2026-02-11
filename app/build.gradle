@@ -26,8 +26,7 @@ java {
 }
 
 application {
-    // Your main class is ContinuousIntegrationServer
-    mainClass = 'org.example.ContinuousIntegrationServer'
+    mainClass = 'org.example.Main'
 }
 
 tasks.named('test') {
