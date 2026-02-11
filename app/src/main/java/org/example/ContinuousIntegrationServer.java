@@ -29,8 +29,6 @@ import org.example.payload.PushPayload;
 */
 public class ContinuousIntegrationServer extends AbstractHandler
 {
-    final String BUILD_LOG_ROUTE = "/custom-build-logs";
-    final Path BUILD_LOG_DIR = Path.of("custom-build-logs");       // Note: Placed in project root (not repo root, not src)
 
     public void handle(String target,
                        Request baseRequest,
@@ -52,25 +50,7 @@ public class ContinuousIntegrationServer extends AbstractHandler
                 break;
 
             case "GET":
-                StringBuilder sb = new StringBuilder("""
-                    <!DOCTYPE html>
-                    <html lang="en">
-                    <head>
-                        <meta charset="UTF-8">
-                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    </head>
-                """);
-                String bodyCss = "font-family: monospace";
-                sb.append("<body style=\"").append(bodyCss).append("\">");
-
-                handleGET(target, response, sb);
-
-                sb.append("""
-                    </body>
-                    </html>     
-                """);
-
-                response.getWriter().print(sb);
+                GetRequestHandler.handle(target, response);
                 break;
 
             default:
@@ -100,94 +80,6 @@ public class ContinuousIntegrationServer extends AbstractHandler
             System.out.println("repository: " + repoName);
             System.out.println("commit sha: " + commitSha);
         }
-    }
-
-    private static String normalizeString(String str) {       
-        if (str == null || str.isEmpty()) {
-            return str;
-        }
-        str = str.replaceAll("/+", "/");
-        if (str.charAt(str.length()-1) == '/') {
-            str = str.substring(0, str.length() - 1);
-        }
-        return str;
-    }
-
-    // Examples of valid URLs:
-    //     - "localhost:8080/custom-build-logs" to list all build logs.
-    //     - "localhost:8080/custom-build-logs/2026-02-09T13:17:20+01:00.json" to list info from this specific build
-    public void handleGET(String target, HttpServletResponse response, StringBuilder sb) {
-        
-        target = normalizeString(target);
-
-        // Route: List all logs
-        if (target.equals(BUILD_LOG_ROUTE)) {
-            sb.append("<h1>All Build Logs</h1>");
-            
-            File dir = BUILD_LOG_DIR.toFile();
-            File[] files = dir.listFiles();
-
-            if (files == null) {
-                return;
-            }
-            else if (files.length == 0) {
-                sb.append("(empty)");
-            }
-            else {
-                Arrays.sort(files);
-                sb.append("<ul>");
-                for (File file : files) {
-                    if (file.isFile()) {
-                        String fileNameEscaped = StringEscapeUtils.escapeHtml4(file.getName());
-                        sb.append("<li><a href=\"")
-                          .append(BUILD_LOG_ROUTE).append("/").append(fileNameEscaped)
-                          .append("\">")
-                          .append(fileNameEscaped)
-                          .append("</a></li>");
-                    }
-                }
-                sb.append("</ul>");
-            }
-
-            return;
-        }
-
-        // Route: List specific log file
-        if (target.startsWith(BUILD_LOG_ROUTE)) {
-
-            String _fileName = target.substring(BUILD_LOG_ROUTE.length() + 1);       // Extract content after prefix
-            String fileNameEscaped = StringEscapeUtils.escapeHtml4(_fileName);
-
-            Path filePath = BUILD_LOG_DIR.resolve(_fileName);
-
-            if (!Files.exists(filePath)) {
-                sb.append("<p>Build \"").append(fileNameEscaped).append("\" doesn't exist</p>");
-                return;
-            }
-            
-            BuildLog buildLog;
-            try {
-                buildLog = new ObjectMapper().readValue(filePath.toFile(), BuildLog.class);
-            } catch (IOException e) {
-                sb.append("<p>Error reading build log \"").append(fileNameEscaped).append("\"</p>");
-                return;
-            }
-
-            String sanitizedLog = StringEscapeUtils.escapeHtml4(buildLog.log);
-            String logCss = "background-color: #f4f4f4; white-space: pre-wrap; word-wrap: break-word";
-
-            sb.append("<h1>Build: ").append(fileNameEscaped).append("</h1>");
-            sb.append("<ul>");
-            sb.append("  <li>timestamp: ").append(buildLog.timestamp).append("</li>");
-            sb.append("  <li>success: ").append(buildLog.success).append("</li>");
-            sb.append("  <li>commit identifier: ").append(buildLog.commitIdentifier).append("</li>");
-            sb.append("</ul>");
-            sb.append("<h2>Log:</h2>");
-            sb.append("<pre style=\"").append(logCss).append("\">").append(sanitizedLog).append("</pre>");
-            return;
-        }
-
-        sb.append("<p>Invalid GET request</p>");
     }
 
     // used to start the CI server in command line
