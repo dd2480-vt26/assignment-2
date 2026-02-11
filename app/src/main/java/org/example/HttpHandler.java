@@ -22,7 +22,7 @@ import org.example.payload.PushPayload;
  * handlers. This class focuses on parsing requests and extracting metadata
  * from push events.
  */
-public class ContinuousIntegrationServer extends AbstractHandler
+public class HttpHandler extends AbstractHandler
 {
     /**
      * Handle incoming HTTP requests and dispatch by method.
