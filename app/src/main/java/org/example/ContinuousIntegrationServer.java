@@ -36,6 +36,10 @@ public class ContinuousIntegrationServer extends AbstractHandler
                 handlePUT(request);
                 break;
 
+            case "POST":
+                handlePOST(request);
+                break;
+
             case "GET":
                 handleGET(target, response);
                 break;
@@ -46,6 +50,10 @@ public class ContinuousIntegrationServer extends AbstractHandler
     }
  
     public void handlePUT(HttpServletRequest request) throws IOException {
+        // TODO: Can be removed if unused.
+    }
+
+    public void handlePOST(HttpServletRequest request) throws IOException {
         String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
 
