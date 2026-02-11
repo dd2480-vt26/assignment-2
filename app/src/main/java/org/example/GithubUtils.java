@@ -21,17 +21,6 @@ import java.util.Properties;
  * GitHub API status values can be used.
  */
 public class GithubUtils {
-    
-    private final String token; // Personal access token for GitHub
-
-    /**
-     * Constructs an {@code UpdateGithubStatus} instance with a GitHub personal access token.
-     *
-     * @param token GitHub personal access token with "Commit statuses" read and write permission
-     */
-    public GithubUtils(String token) {
-        this.token = token;
-    }
 
     /**
      * Represents the possible commit status states supported by the GitHub API.
@@ -101,7 +90,7 @@ public class GithubUtils {
      * @param jsonBody JSON payload to send as the request body
      * @return {@link HttpRequest} object ready to be sent to GitHub
      */
-    public HttpRequest buildRequest(String owner, String repo, String sha, String jsonBody) {
+    public static HttpRequest buildRequest(String token, String owner, String repo, String sha, String jsonBody) {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(buildURI(owner, repo, sha))
             .header("Accept", "application/vnd.github+json")
@@ -127,7 +116,8 @@ public class GithubUtils {
      * @throws IOException if an I/O error occurs when sending or receiving
      * @throws InterruptedException if the operation is interrupted
      */
-    public HttpResponse<String> updateStatus(String owner, 
+    public static HttpResponse<String> updateStatus(String token,
+                             String owner, 
                              String repo, 
                              String sha, 
                              CommitState state, 
@@ -139,7 +129,7 @@ public class GithubUtils {
         String jsonBody = buildJsonBody(state, targetUrl, description, context);
 
         HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = buildRequest(owner, repo, sha, jsonBody);
+        HttpRequest request = buildRequest(token, owner, repo, sha, jsonBody);
 
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }

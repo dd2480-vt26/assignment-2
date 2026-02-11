@@ -129,8 +129,7 @@ public class ContinuousIntegrationServer extends AbstractHandler
             token = GithubUtils.loadToken(configFileName);
         }
 
-        GithubUtils updater = new GithubUtils(token);
-        return updater.updateStatus(owner, repo, sha, state, targetUrl, description, context);
+        return GithubUtils.updateStatus(token, owner, repo, sha, state, targetUrl, description, context);
     }
 
     public void handleGET(String target, HttpServletResponse response) throws IOException {

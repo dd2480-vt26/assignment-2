@@ -101,14 +101,12 @@ public class GithubUtilsTest {
     @Test
     void buildRequest_shouldHaveCorrectFields() {
         String token = "dummy-token";
-        GithubUtils updater = new GithubUtils(token);
-
         String owner = "dd2480-vt26";
         String repo = "assignment-2";
         String sha = "abc123";
         String jsonBody = "{ \"state\": \"success\" }";
 
-        HttpRequest request = updater.buildRequest(owner, repo, sha, jsonBody);
+        HttpRequest request = GithubUtils.buildRequest(token, owner, repo, sha, jsonBody);
 
         // Check that URI is correct
         assertEquals("https://api.github.com/repos/dd2480-vt26/assignment-2/statuses/abc123",
