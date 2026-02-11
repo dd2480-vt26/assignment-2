@@ -125,13 +125,11 @@ public class ContinuousIntegrationServer extends AbstractHandler
                                    String description,
                                    String context) throws IOException, InterruptedException {
         
-
-        GithubTokenProvider tokenProvider = new GithubTokenProvider();
         if (token == null || token.isBlank()) {
-            token = tokenProvider.loadToken(configFileName);
+            token = GithubUtils.loadToken(configFileName);
         }
 
-        UpdateGithubStatus updater = new UpdateGithubStatus(token);
+        GithubUtils updater = new GithubUtils(token);
         return updater.updateStatus(owner, repo, sha, state, targetUrl, description, context);
     }
 

@@ -1,16 +1,50 @@
 package org.example;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpRequest;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-public class UpdateGithubStatusTest {
-    
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+public class GithubUtilsTest {
+    @TempDir
+    Path tempDir;
+
+    /**
+     * Positive test: {@code loadToken} returns the token when the config file contains a valid value.
+     * Test case: config.properties contains {@code GITHUB_TOKEN=dummy-token}.
+     * Expected: The returned token equals {@code dummy-token}.
+     */
+    @Test
+    void loadToken_shouldReturnTokenWhenPresent() throws IOException {
+        Path configFile = tempDir.resolve("config.properties");
+        Files.writeString(configFile, "GITHUB_TOKEN=dummy-token\n");
+
+        String token = GithubUtils.loadToken(configFile.toString());
+
+        assertEquals("dummy-token", token);
+    }
+
+    /**
+     * Negative test: {@code loadToken} throws an exception when the token is missing.
+     * Test case: config.properties does not contain {@code GITHUB_TOKEN}.
+     * Expected: The method throws an {@code IOException}.
+     */
+    @Test
+    void loadToken_shouldThrowWhenTokenMissing() throws IOException {
+        Path configFile = tempDir.resolve("config.properties");
+        Files.writeString(configFile, "GITHUB_TOKEN=\n");
+
+        assertThrows(IOException.class, () -> GithubUtils.loadToken(configFile.toString()));
+    }
+
     /**
      * Positive test: {@code buildJsonBody} builds JSON with all fields specified.
      * Test case: JSON with all fields specified.
@@ -18,9 +52,7 @@ public class UpdateGithubStatusTest {
      */
     @Test
     void buildJsonBody_shouldContainStateURlDescriptionAndContext() {
-        UpdateGithubStatus updater = new UpdateGithubStatus("dummy-token");
-
-        String json = updater.buildJsonBody("success",
+        String json = GithubUtils.buildJsonBody("success",
                                             "https://example.com", 
                                             "Tests passed", 
                                             "ci/test");
@@ -38,9 +70,7 @@ public class UpdateGithubStatusTest {
      */
     @Test
     void buildJsonBody_fieldsLeftEmptyWhenNotSpecified() {
-        UpdateGithubStatus updater = new UpdateGithubStatus("dummy-token");
-
-        String json = updater.buildJsonBody("success",
+        String json = GithubUtils.buildJsonBody("success",
                                             null, 
                                             null, 
                                             null);
@@ -58,12 +88,10 @@ public class UpdateGithubStatusTest {
      */
     @Test
     void buildJsonBody_shouldThrowForInvalidState() {
-        UpdateGithubStatus updater = new UpdateGithubStatus("dummy-token");
-
         String invalidState = "completed"; // An invalid state
 
         assertThrows(IllegalArgumentException.class, () -> {
-            updater.buildJsonBody(invalidState, "https://example.com", "Some description", "ci/test");
+            GithubUtils.buildJsonBody(invalidState, "https://example.com", "Some description", "ci/test");
         });
     }
 
@@ -74,9 +102,7 @@ public class UpdateGithubStatusTest {
      */
     @Test 
     void buildURI_shouldBeCorrect() {
-        UpdateGithubStatus updater = new UpdateGithubStatus("dummy-token");
-
-        URI uri = updater.buildURI("dd2480-vt26", "assignment-2", "abc123");
+        URI uri = GithubUtils.buildURI("dd2480-vt26", "assignment-2", "abc123");
 
         assertEquals("https://api.github.com/repos/dd2480-vt26/assignment-2/statuses/abc123", uri.toString());
     }
@@ -88,8 +114,8 @@ public class UpdateGithubStatusTest {
      */
     @Test
     void buildRequest_shouldHaveCorrectFields() {
-         String token = "dummy-token";
-        UpdateGithubStatus updater = new UpdateGithubStatus(token);
+        String token = "dummy-token";
+        GithubUtils updater = new GithubUtils(token);
 
         String owner = "dd2480-vt26";
         String repo = "assignment-2";
@@ -113,6 +139,4 @@ public class UpdateGithubStatusTest {
         assertEquals("2022-11-28",
                      request.headers().firstValue("X-GitHub-Api-Version").orElse(""));
     }
-
-
 }

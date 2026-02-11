@@ -1,18 +1,16 @@
 package org.example;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Properties;
 
-/**
- * Class for updating the status of a commit on GitHub using the REST API.
- * 
- * This class allows building the JSON payload, constructing the HTTP request, 
- * and sending it to GitHub to set commit statuses such as "pending", "success", or "failure".
- */
-public class UpdateGithubStatus {
+public class GithubUtils {
+    
     private final String token; // Personal access token for GitHub
 
     /**
@@ -20,7 +18,7 @@ public class UpdateGithubStatus {
      *
      * @param token GitHub personal access token with "Commit statuses" read and write permission
      */
-    public UpdateGithubStatus(String token) {
+    public GithubUtils(String token) {
         this.token = token;
     }
     
@@ -33,7 +31,7 @@ public class UpdateGithubStatus {
      * @param context Optional context name to differentiate this status from others
      * @return A JSON string representing the commit status payload
      */
-    public String buildJsonBody(String state, String targetUrl, String description, String context) {
+    public static String buildJsonBody(String state, String targetUrl, String description, String context) {
         
         // If state is something other than error, failure, pending or success
         if (!state.equals("error") && !state.equals("failure") 
@@ -67,7 +65,7 @@ public class UpdateGithubStatus {
      * @param sha Commit SHA to update the status for
      * @return URI object pointing to the commit status endpoint for the given repository and commit
      */
-    public URI buildURI(String owner, String repo, String sha) {
+    public static URI buildURI(String owner, String repo, String sha) {
         return URI.create("https://api.github.com/repos/" + owner + "/" + repo + "/statuses/" + sha);
     }
 
@@ -123,4 +121,28 @@ public class UpdateGithubStatus {
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
+    /**
+     * Retrieves the Personal Access Token (PAT) specified in the file {@code configFile} 
+     * 
+     * @param configFile the config file
+     * @return the PAT
+     * @throws IOException if the token isn't set 
+     * @throws FileNotFoundException if the config file doesn't exist
+     */
+    public static String loadToken(String configFile) throws IOException, FileNotFoundException {
+        Properties props = new Properties();
+        try {
+            props.load(new FileInputStream(configFile));
+        } catch (FileNotFoundException e) {
+            System.out.println("The config file was not found");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        String t = props.getProperty("GITHUB_TOKEN");
+        if (t == null || t.isBlank()) {
+            throw new IOException("GITHUB_TOKEN is not set in config.properties");
+        }
+        return t;
+    }
 }
