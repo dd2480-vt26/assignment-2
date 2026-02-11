@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.Properties;
+import java.net.http.HttpResponse;
 
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Request;
@@ -43,7 +44,11 @@ public class ContinuousIntegrationServer extends AbstractHandler
                 break;
 
             case "POST":
-                handlePOST(request);
+                try {
+                    handlePOST(request);
+                } catch (IOException | InterruptedException e) {
+                    e.printStackTrace();
+                }
                 break;
 
             case "GET":
@@ -59,7 +64,7 @@ public class ContinuousIntegrationServer extends AbstractHandler
         // TODO: Can be removed if unused.
     }
 
-    public void handlePOST(HttpServletRequest request) throws IOException {
+    public void handlePOST(HttpServletRequest request) throws IOException, InterruptedException {
         String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
 
@@ -76,7 +81,58 @@ public class ContinuousIntegrationServer extends AbstractHandler
             System.out.println("clone URL: " + cloneUrl);
             System.out.println("repository: " + repoName);
             System.out.println("commit sha: " + commitSha);
+
+            String status = "failure"; // placeholder
+            String owner = repoName.split("/")[0];
+            String repo = repoName.split("/")[1];
+            String targetUrl = ""; // placeholder, should be URL to the build
+            String description = ""; // placeholder, optional description of the status
+            String context = ""; // placeholder, optional context name
+
+            HttpResponse<String> githubResponse = handleCommitStatus(owner, repo, commitSha, status, targetUrl, description, context);
+            int ci_status = githubResponse.statusCode();
+            if(ci_status == 201) {
+                System.out.println("CI job done");
+            } else {
+                System.out.println("CI job failed. Status: " + ci_status);
+            }
+
         }
+    }
+
+    /**
+     * Updates the status of a specific commit on GitHub.
+     * 
+     * This method ensures a GitHub token is loaded (from {@code config.properties}) if it hasn't been set already,
+     * then creates an {@link UpdateGithubStatus} instance to send the commit status update.
+     *
+     * @param owner GitHub repository owner 
+     * @param repo GitHub repository name
+     * @param sha Commit SHA to update the status for
+     * @param state The state of the commit status; valid values: "error", "failure", "pending", or "success"
+     * @param targetUrl Optional URL linking to more details about the status
+     * @param description Optional short description of the status
+     * @param context Optional context name to differentiate this status from others
+     * @return {@code HttpResponse} containing the response from GitHub
+     * @throws IOException If the GitHub token cannot be loaded or an I/O error occurs while sending the request
+     * @throws InterruptedException If the HTTP request is interrupted
+     */
+    public HttpResponse<String> handleCommitStatus(String owner, 
+                                   String repo, 
+                                   String sha, 
+                                   String state, 
+                                   String targetUrl,
+                                   String description,
+                                   String context) throws IOException, InterruptedException {
+        
+
+        GithubTokenProvider tokenProvider = new GithubTokenProvider();
+        if (token == null || token.isBlank()) {
+            token = tokenProvider.loadToken(configFileName);
+        }
+
+        UpdateGithubStatus updater = new UpdateGithubStatus(token);
+        return updater.updateStatus(owner, repo, sha, state, targetUrl, description, context);
     }
 
     public void handleGET(String target, HttpServletResponse response) throws IOException {
