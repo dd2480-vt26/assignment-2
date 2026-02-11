@@ -106,8 +106,12 @@ public class HttpHandler extends AbstractHandler
         Files.createDirectories(REPO_DIR);
         cloner.runGitClone(cloneUrl, REPO_DIR);
 
+        // --- Step 2: Check out affected branch ---
+        String branch = payload.ref.replace("^refs/heads/", "");
+        BranchCheckout checkouter = new BranchCheckout();
+        checkouter.checkoutBranch(REPO_DIR, branch);
+
         // Bellow is just example usage and for testing
-        String branch = payload.ref.replace("refs/heads/", ""); // replace refs/heads/branchName with the just branchName
         String repoName = payload.repository.full_name;
         String commitSha = payload.after;
 
