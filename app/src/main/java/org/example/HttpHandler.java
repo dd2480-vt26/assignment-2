@@ -2,24 +2,12 @@ package org.example;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.ServletException;
- 
 import java.io.IOException;
 import java.util.stream.Collectors;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.util.Properties;
 import java.net.http.HttpResponse;
-
-import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import net.bytebuddy.jar.asm.Handle;
-
-import com.fasterxml.jackson.databind.JsonNode;
 import org.example.payload.PushPayload;
 
 /**
