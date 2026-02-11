@@ -6,7 +6,10 @@ import javax.servlet.ServletException;
  
 import java.io.IOException;
 import java.util.stream.Collectors;
- 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.util.Properties;
+
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
@@ -21,6 +24,9 @@ import org.example.payload.PushPayload;
 */
 public class ContinuousIntegrationServer extends AbstractHandler
 {
+    private String configFileName = "config.properties";
+    private String token; // Personal access token for GitHub
+    
     public void handle(String target,
                        Request baseRequest,
                        HttpServletRequest request,
