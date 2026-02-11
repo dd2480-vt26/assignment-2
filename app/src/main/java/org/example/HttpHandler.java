@@ -16,18 +16,33 @@ import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import net.bytebuddy.jar.asm.Handle;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import org.example.payload.PushPayload;
 
-/** 
- Skeleton of a ContinuousIntegrationServer which acts as webhook
- See the Jetty documentation for API documentation of those classes.
-*/
-public class ContinuousIntegrationServer extends AbstractHandler
+/**
+ * Handler for a simple CI webhook endpoint.
+ *
+ * Handles incoming webhook requests and dispatches to method-specific
+ * handlers. This class focuses on parsing requests and extracting metadata
+ * from push events.
+ */
+public class HttpHandler extends AbstractHandler
 {
     private String configFileName = "config.properties";
     private String token; // Personal access token for GitHub
     
+    /**
+     * Handle incoming HTTP requests and dispatch by method.
+     *
+     * @param target path or target for Jetty routing
+     * @param baseRequest Jetty request object used to mark the request handled
+     * @param request servlet request
+     * @param response servlet response
+     * @throws IOException if reading request data fails
+     */
     public void handle(String target,
                        Request baseRequest,
                        HttpServletRequest request,
@@ -60,10 +75,23 @@ public class ContinuousIntegrationServer extends AbstractHandler
         }
     }
  
+    /**
+     * Handle PUT requests.
+     *
+     * @param request servlet request
+     * @throws IOException if reading request data fails
+     */
     public void handlePUT(HttpServletRequest request) throws IOException {
         // TODO: Can be removed if unused.
     }
 
+    /**
+     * Handle POST requests that carry webhook payloads.
+     *
+     * @param request servlet request
+     * @throws IOException if reading request data fails
+     * @throws InterruptedException If the HTTP request is interrupted
+     */
     public void handlePOST(HttpServletRequest request) throws IOException, InterruptedException {
         String jsonString = request.getReader().lines().collect(Collectors.joining("\n")); // takes the request and stringafies it into a json structure
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
@@ -101,6 +129,16 @@ public class ContinuousIntegrationServer extends AbstractHandler
     }
 
     /**
+     * Handle GET requests.
+     *
+     * @param target request target path
+     * @param response servlet response
+     * @throws IOException if writing the response fails
+     */
+    public void handleGET(String target, HttpServletResponse response) throws IOException {
+    }
+
+    /**
      * Updates the status of a specific commit on GitHub.
      * 
      * This method ensures a GitHub token is loaded (from {@code config.properties}) if it hasn't been set already,
@@ -130,16 +168,5 @@ public class ContinuousIntegrationServer extends AbstractHandler
         }
 
         return GithubUtils.updateStatus(token, owner, repo, sha, state, targetUrl, description, context);
-    }
-
-    public void handleGET(String target, HttpServletResponse response) throws IOException {
-    }
-    // used to start the CI server in command line
-    public static void main(String[] args) throws Exception
-    {
-        Server server = new Server(8080);
-        server.setHandler(new ContinuousIntegrationServer()); 
-        server.start();
-        server.join();
     }
 }
