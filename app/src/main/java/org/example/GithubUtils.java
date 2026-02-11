@@ -9,6 +9,17 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Properties;
 
+/**
+ * Utility class for interacting with the GitHub REST API.
+ *
+ * This class provides helper methods for:
+ * Loading a GitHub Personal Access Token (PAT) from a configuration file
+ * Building JSON payloads and URIs for the GitHub commit status endpoint
+ * Creating and sending HTTP requests to update commit statuses
+ *
+ * Commit states are represented using the {@code CommitState} enum to ensure that only valid
+ * GitHub API status values can be used.
+ */
 public class GithubUtils {
     
     private final String token; // Personal access token for GitHub
