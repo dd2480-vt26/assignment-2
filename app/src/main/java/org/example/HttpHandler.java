@@ -111,6 +111,9 @@ public class HttpHandler extends AbstractHandler
         BranchCheckout checkouter = new BranchCheckout();
         checkouter.checkoutBranch(REPO_DIR, branch);
 
+        // --- Step 3: Build the project ---
+        GradleBuildRunner.run(REPO_DIR);
+
         // Bellow is just example usage and for testing
         String repoName = payload.repository.full_name;
         String commitSha = payload.after;
