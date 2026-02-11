@@ -39,5 +39,5 @@ public class BuildResult{
         this.logs = "";
     }
 
-}
 
+}
