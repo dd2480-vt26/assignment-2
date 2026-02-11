@@ -11,6 +11,7 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.stream.Collectors;
  
 import org.eclipse.jetty.server.Server;
@@ -122,7 +123,32 @@ public class ContinuousIntegrationServer extends AbstractHandler
         // Route: List all logs
         if (target.equals(BUILD_LOG_ROUTE)) {
             sb.append("<h1>All Build Logs</h1>");
-            // TODO
+            
+            File dir = BUILD_LOG_DIR.toFile();
+            File[] files = dir.listFiles();
+
+            if (files == null) {
+                return;
+            }
+            else if (files.length == 0) {
+                sb.append("(empty)");
+            }
+            else {
+                Arrays.sort(files);
+                sb.append("<ul>");
+                for (File file : files) {
+                    if (file.isFile()) {
+                        String fileNameEscaped = StringEscapeUtils.escapeHtml4(file.getName());
+                        sb.append("<li><a href=\"")
+                          .append(BUILD_LOG_ROUTE).append("/").append(fileNameEscaped)
+                          .append("\">")
+                          .append(fileNameEscaped)
+                          .append("</a></li>");
+                    }
+                }
+                sb.append("</ul>");
+            }
+
             return;
         }
 
