@@ -19,12 +19,19 @@ public class BuildResult{
 
     /**
      * status: the final status of the build/test
+     */
+    public Status status;
+
+    /**
      * logs: the standard output/error logs captured during execution.
+     */
+
+    public String logs;
+
+    /**
      * errorMessage: a descriptive error message if an error occurred.
      */
 
-    public Status status;
-    public String logs;
     public String errorMessage;
 
     public BuildResult(Status status) {
