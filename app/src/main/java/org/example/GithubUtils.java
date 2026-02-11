@@ -26,20 +26,10 @@ public class GithubUtils {
      * Represents the possible commit status states supported by the GitHub API.
      */
     public enum CommitState {
-        ERROR("error"),
-        FAILURE("failure"),
-        PENDING("pending"),
-        SUCCESS("success");
-
-        private final String state;
-
-        CommitState(String state) {
-            this.state = state;
-        }
-
-        public String getStateString() {
-            return state;
-        }
+        ERROR,
+        FAILURE,
+        PENDING,
+        SUCCESS
     }
     
     /**
@@ -60,7 +50,7 @@ public class GithubUtils {
                 "context": "%s"
             }
             """, 
-            state.getStateString(),
+            state.toString().toLowerCase(),
             targetUrl != null ? targetUrl : "",
             description != null ? description : "",
             context != null ? context : ""
