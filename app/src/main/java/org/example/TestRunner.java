@@ -54,14 +54,14 @@ public class TestRunner {
 
             BuildResult.Status status = (exitCode == 0) ? BuildResult.Status.SUCCESS : BuildResult.Status.FAILURE;
             BuildResult result = new BuildResult(status);
-            result.logs = output.toString();
+            result.log = output.toString();
 
             return result;
 
         } catch (Exception e) {
             BuildResult result = new BuildResult(BuildResult.Status.ERROR);
             result.errorMessage = "Exception running tests: " + e.getMessage();
-            result.logs = e.getMessage();
+            result.log = e.getMessage();
             return result;
         }
     }
