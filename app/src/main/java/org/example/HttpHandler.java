@@ -58,17 +58,19 @@ public class HttpHandler extends AbstractHandler
         response.setStatus(HttpServletResponse.SC_OK);
         baseRequest.setHandled(true);
 
-        if (!request.getHeader("X-GitHub-Event").equals("push")) {
-            System.out.println("Got HTTP req but was not GitHub push");
-            return;
-        }
-
         switch (request.getMethod()) {
             case "PUT":
                 handlePUT(request);
                 break;
 
             case "POST":
+
+                String header = request.getHeader("X-GitHub-Event");
+                if (header == null || !header.equals("push")) {
+                    System.out.println("Got HTTP req but was not GitHub push");
+                    return;
+                }
+
                 System.out.println("- - - - - - - - -  - POST START - - - - - - -");
                 try {
                     handlePOST(request);
@@ -79,7 +81,7 @@ public class HttpHandler extends AbstractHandler
                 break;
 
             case "GET":
-                handleGET(target, response);
+                GetRequestHandler.handle(target, response);
                 break;
 
             default:
@@ -119,7 +121,7 @@ public class HttpHandler extends AbstractHandler
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
         PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
 
-        final Path logDir = Utils.ALL_BUILDS_DIR.resolve(payload.repository.full_name);
+        final Path logDir = Utils.LOGS_DIR.resolve(payload.repository.full_name);
 
         // --- Step 0: Prepare Github comms ---
         String[] strs = payload.repository.full_name.split("/");
@@ -245,16 +247,6 @@ public class HttpHandler extends AbstractHandler
         System.out.println("----------- HttpHandler: Remove repo --------------");
         new RepoCleanup().deleteRepo(REPO_DIR);
         System.out.println("----------- HttpHandler: Remove repo DONE --------------");
-    }
-
-    /**
-     * Handle GET requests.
-     *
-     * @param target request target path
-     * @param response servlet response
-     * @throws IOException if writing the response fails
-     */
-    public void handleGET(String target, HttpServletResponse response) throws IOException {
     }
 
     /**

@@ -23,9 +23,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class GetRequestHandler {
 
-    private static final String BUILD_LOG_ROUTE = "/custom-build-logs";
-    private static final Path BUILD_LOG_DIR = Path.of("custom-build-logs");       // Note: Placed in project root (not repo root, not src)
-
     /**
      * Handles a GET request for build logs.
      * <p>
@@ -49,17 +46,20 @@ public class GetRequestHandler {
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
             </head>
+            <body style=\"font-family: monospace\">
         """);
-        String bodyCss = "font-family: monospace";
-        sb.append("<body style=\"").append(bodyCss).append("\">");
 
-        target = normalizeURL(target);
+        target = target.replaceAll("^/", "");       // Remove leading slashes
+        Path targetAsPath = Path.of(target);
 
-        if (target.equals(BUILD_LOG_ROUTE)) {
-            handleListAllBuilds(sb);
+        if (!targetAsPath.startsWith(Utils.LOGS_DIR) || targetAsPath.toString().contains("..")) {
+            sb.append("<p>Invalid GET request</p>");
         }
-        else if (target.startsWith(BUILD_LOG_ROUTE)) {
-            handleListSpecificBuild(sb, target);
+        else if (Files.isDirectory(targetAsPath)) {
+            handleListAllBuilds(targetAsPath, sb);
+        }
+        else if (Files.isRegularFile(targetAsPath)) {
+            handleListSpecificBuild(targetAsPath, sb);
         }
         else {
             sb.append("<p>Invalid GET request</p>");
@@ -74,34 +74,19 @@ public class GetRequestHandler {
     }
 
     /**
-     * Normalizes a URL path by replacing multiple consecutive slashes with
-     * a single slash and removing trailing slashes.
-     * @param str the URL path to normalize
-     * @return a normalized string
-     */
-    private static String normalizeURL(String str) {       
-        if (str == null || str.isEmpty()) {
-            return str;
-        }
-        str = str.replaceAll("/+", "/");
-        if (str.charAt(str.length()-1) == '/') {
-            str = str.substring(0, str.length() - 1);
-        }
-        return str;
-    }
-
-    /**
      * Generates an HTML list of all build logs in the {@link #BUILD_LOG_DIR} directory.
      * <p>
      * Each build log is a clickable link to its specific URL.
      * </p>
      * @param sb the StringBuilder to append HTML content to
      */
-    private static void handleListAllBuilds(StringBuilder sb) {
+    private static void handleListAllBuilds(Path dir, StringBuilder sb) {
         sb.append("<h1>All Build Logs</h1>");
         
-        File dir = BUILD_LOG_DIR.toFile();
-        File[] files = dir.listFiles();
+        System.out.println("DIR: " + dir);
+
+        File dirFile = dir.toFile();
+        File[] files = dirFile.listFiles();
 
         if (files == null) {
             return;
@@ -115,9 +100,7 @@ public class GetRequestHandler {
             for (File file : files) {
                 if (file.isFile()) {
                     String fileNameEscaped = StringEscapeUtils.escapeHtml4(file.getName());
-                    sb.append("<li><a href=\"")
-                        .append(BUILD_LOG_ROUTE).append("/").append(fileNameEscaped)
-                        .append("\">")
+                    sb.append("<li><a href=\"").append(fileNameEscaped).append("\">")
                         .append(fileNameEscaped)
                         .append("</a></li>");
                 }
@@ -134,38 +117,39 @@ public class GetRequestHandler {
      * displays the JSON content.
      * </p>
      * @param sb the StringBuilder to append HTML content to
-     * @param target the URL path pointing to the specific build log
+     * @param path the URL path pointing to the specific build log
      */
-    private static void handleListSpecificBuild(StringBuilder sb, String target) {
-        String _fileName = target.substring(BUILD_LOG_ROUTE.length() + 1);       // Extract content after prefix
-        String fileNameEscaped = StringEscapeUtils.escapeHtml4(_fileName);
-
-        Path filePath = BUILD_LOG_DIR.resolve(_fileName);
-
-        if (!Files.exists(filePath)) {
-            sb.append("<p>Build \"").append(fileNameEscaped).append("\" doesn't exist</p>");
-            return;
-        }
+    private static void handleListSpecificBuild(Path path, StringBuilder sb) {
+        String fileNameEscaped = StringEscapeUtils.escapeHtml4(path.toString());
         
-        BuildLog buildLog;
+        LogInfo logInfo;
         try {
-            buildLog = new ObjectMapper().readValue(filePath.toFile(), BuildLog.class);
+            logInfo = new ObjectMapper().readValue(path.toFile(), LogInfo.class);
         } catch (IOException e) {
+            e.printStackTrace();
             sb.append("<p>Error reading build log \"").append(fileNameEscaped).append("\"</p>");
             return;
         }
 
-        String sanitizedLog = StringEscapeUtils.escapeHtml4(buildLog.log);
         String logCss = "background-color: #f4f4f4; white-space: pre-wrap; word-wrap: break-word";
 
-        sb.append("<h1>Build: ").append(fileNameEscaped).append("</h1>");
+        sb.append("<h1>Log Info: ").append(fileNameEscaped).append("</h1>");
         sb.append("<ul>");
-        sb.append("  <li>timestamp: ").append(buildLog.timestamp).append("</li>");
-        sb.append("  <li>success: ").append(buildLog.success).append("</li>");
-        sb.append("  <li>commit identifier: ").append(buildLog.commitIdentifier).append("</li>");
+        sb.append("  <li>timestamp: ").append(logInfo.timestamp).append("</li>");
+        sb.append("  <li>commitIdentifier: ").append(logInfo.commitIdentifier).append("</li>");
         sb.append("</ul>");
-        sb.append("<h2>Log:</h2>");
-        sb.append("<pre style=\"").append(logCss).append("\">").append(sanitizedLog).append("</pre>");
+        
+        sb.append("<h2>Build</h2>");
+        sb.append("<ul>");
+        sb.append("  <li>buildStatus: ").append(logInfo.buildStatus).append("</li>");
+        sb.append("</ul>");
+        sb.append("<pre style=\"").append(logCss).append("\">").append(StringEscapeUtils.escapeHtml4(logInfo.buildLog)).append("</pre>");
+
+        sb.append("<h2>Test</h2>");
+        sb.append("<ul>");
+        sb.append("  <li>testStatus: ").append(logInfo.testStatus).append("</li>");
+        sb.append("</ul>");
+        sb.append("<pre style=\"").append(logCss).append("\">").append(StringEscapeUtils.escapeHtml4(logInfo.testLog)).append("</pre>");
     }
 
 }

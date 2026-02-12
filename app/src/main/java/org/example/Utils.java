@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class Utils {
 
-    protected static final Path ALL_BUILDS_DIR = Path.of("logs");
+    protected static final Path LOGS_DIR = Path.of("logs");
 
     public static CmdResult execGradleCommandInRepo(Path repoDir, String... args) {
 
