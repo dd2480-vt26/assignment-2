@@ -26,7 +26,7 @@ public class BuildResult{
      * logs: the standard output/error logs captured during execution.
      */
 
-    public String logs;
+    public String log;
 
     /**
      * errorMessage: a descriptive error message if an error occurred.
@@ -36,7 +36,11 @@ public class BuildResult{
 
     public BuildResult(Status status) {
         this.status = status;
-        this.logs = "";
+    }
+
+    public BuildResult(Status status, String log) {
+        this.status = status;
+        this.log = log;
     }
 
 

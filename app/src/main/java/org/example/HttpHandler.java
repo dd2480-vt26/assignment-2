@@ -2,15 +2,22 @@ package org.example;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.stream.Collectors;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.example.payload.PushPayload;
 
 /**
@@ -23,6 +30,8 @@ import org.example.payload.PushPayload;
 public class HttpHandler extends AbstractHandler
 {
     private static final Path ALL_REPOS_DIR = Path.of("repos");
+    private static final Path ALL_BUILDS_DIR = Path.of("builds-archive");
+
     private String configFileName = "config.properties";
     private String token; // Personal access token for GitHub
     
@@ -94,7 +103,13 @@ public class HttpHandler extends AbstractHandler
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
         PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
 
-        // TODO: Set GH status: PENDING
+        // --- Step 0: Prepare Github comms ---
+        String[] strs = payload.repository.full_name.split("/");
+        String owner = strs[0];
+        String repoName = strs[1];
+        String commitSha = payload.after;
+        String context = "continuous integration";
+        GithubUtils.CommitState commitState = GithubUtils.CommitState.PENDING;
 
         // --- Step 1. Clone the project ---
         RepoCloner cloner = new RepoCloner();
@@ -109,64 +124,99 @@ public class HttpHandler extends AbstractHandler
         cloner.runGitClone(cloneUrl, REPO_DIR);
 
         // --- Step 2: Check out affected branch ---
-        String branch = payload.ref.replace("^refs/heads/", "");
+        String branch = payload.ref.substring(GithubUtils.BRANCH_PREFIX.length());
         BranchCheckout checkouter = new BranchCheckout();
         checkouter.checkoutBranch(REPO_DIR, branch);
 
+        // --- Step 2.5: Set commit state to PENDING ---
+        String description = "Done: Cloned and checked out affected branch.";
+        try {
+            handleCommitStatus(owner, repoName, commitSha, commitState, null, description, context);
+        } catch (GithubCommitException e) {
+            System.out.println("CI job failed when setting status to PENDING. Status: " + e.CI_STATUS + ". Stopping CI job.");
+            new RepoCleanup().deleteRepo(REPO_DIR);
+            return;
+        }
+        
         // --- Step 3: Build the project ---
-        BuildResult.Status buildStatus = GradleBuildRunner.run(REPO_DIR);
-        // TODO: Set commit status
+        BuildResult buildResult = GradleBuildRunner.run(REPO_DIR);
 
-        // --- Step 4: Test the project ---
-        BuildResult testResult = TestRunner.runTests(REPO_DIR.toFile());
-        // TODO: Set commit status
-
-        
-        
-        // Bellow is just example usage and for testing
-        String[] strs = payload.repository.full_name.split("/");
-        String owner = strs[0];
-        String repoName = strs[1];
-        String commitSha = payload.after;
-
-        System.out.println("branch: " + branch);
-        System.out.println("clone URL: " + cloneUrl);
-        System.out.println("repository: " + repoName);
-        System.out.println("commit sha: " + commitSha);
-
-        // TODO: Unify CommitState and BuildResult.Status? Incorporate `testResult`?
-        GithubUtils.CommitState commitState;
-
-        switch (buildStatus) {
-            case BuildResult.Status.ERROR:
-                commitState = GithubUtils.CommitState.ERROR;
+        // Step 3.5: Update commit state description
+        switch (buildResult.status) {
+            case BuildResult.Status.SUCCESS:
+                description = "Build succeeded";
                 break;
             case BuildResult.Status.FAILURE:
+                description = "Build failed";
                 commitState = GithubUtils.CommitState.FAILURE;
+
+                String timeNow = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                Path outputDir = ALL_BUILDS_DIR.resolve(payload.repository.full_name);
+                Path outputPath = outputDir.resolve(timeNow + ".json");
+
+                Files.createDirectories(outputDir);
+
+                BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath.toFile()));
+
+                // Create log and add info
+                ObjectMapper logMapper = new ObjectMapper();
+                ObjectNode jsonObject = logMapper.createObjectNode();
+
+                jsonObject.put("timestamp", timeNow);
+                jsonObject.put("status", buildResult.status.toString());
+                jsonObject.put("commitIdentifier", commitSha);
+                jsonObject.put("log", buildResult.log);
+
+                writer.write(jsonObject.toPrettyString());
+                writer.close();
                 break;
+
+            case BuildResult.Status.ERROR:
+                description = "Build error (couldn't finish build)";
+                commitState = GithubUtils.CommitState.ERROR;
+                break;
+        }
+
+        try {
+            handleCommitStatus(owner, repoName, commitSha, commitState, null, description, context);
+        } catch (GithubCommitException e) {
+            System.out.println("CI job failed when setting status to " + commitState + ". Status: " + e.CI_STATUS + ". Stopping CI job.");
+            new RepoCleanup().deleteRepo(REPO_DIR);
+            return;
+        }
+
+        if (buildResult.status != BuildResult.Status.SUCCESS) {
+            System.out.println("Build: Not success, returning.");
+            return;
+        }
+        
+        // --- Step 4: Test the project ---
+        BuildResult testResult = TestRunner.runTests(REPO_DIR.toFile());
+        switch (testResult.status) {
             case BuildResult.Status.SUCCESS:
+                description = "All tests passed";
                 commitState = GithubUtils.CommitState.SUCCESS;
                 break;
-                default:
+            case BuildResult.Status.FAILURE:
+                description = "Test(s) failed";
                 commitState = GithubUtils.CommitState.FAILURE;
                 break;
+            case BuildResult.Status.ERROR:
+                description = "Test error (couldn't finish tests)";
+                commitState = GithubUtils.CommitState.ERROR;
+                break;
+        }
+        try {
+            handleCommitStatus(owner, repoName, commitSha, commitState, null, description, context);
+            System.out.println("CI job finished successfully");
+        } catch (GithubCommitException e) {
+            System.out.println("CI job failed when setting status to " + commitState + ". Status: " + e.CI_STATUS + ". Stopping CI job.");
+            new RepoCleanup().deleteRepo(REPO_DIR);
+            return;
         }
 
-        // String owner = repoName.split("/")[0];
-        // String repo = repoName.split("/")[1];
-        String targetUrl = "https://www.youtube.com";        // TODO: What url?
-        String description = "abc"; // placeholder, optional description of the status
-        String context = "xyz"; // placeholder, optional context name
-
-        HttpResponse<String> githubResponse = handleCommitStatus(owner, repoName, commitSha, commitState, targetUrl, description, context);
-        int ci_status = githubResponse.statusCode();
-        if(ci_status == 201) {
-            System.out.println("CI job done");
-        } else {
-            System.out.println("CI job failed. Status: " + ci_status);
-        }
-
-        // TODO: Delete cloned repo
+        // --- Delete cloned repo from disk and link to build log
+        new RepoCleanup().deleteRepo(REPO_DIR);
     }
 
     /**
@@ -196,18 +246,23 @@ public class HttpHandler extends AbstractHandler
      * @throws IOException If the GitHub token cannot be loaded or an I/O error occurs while sending the request
      * @throws InterruptedException If the HTTP request is interrupted
      */
-    public HttpResponse<String> handleCommitStatus(String owner, 
+    public void handleCommitStatus(String owner, 
                                    String repo, 
                                    String sha, 
                                    GithubUtils.CommitState state,
                                    String targetUrl,
                                    String description,
-                                   String context) throws IOException, InterruptedException {
+                                   String context) throws IOException, InterruptedException, GithubCommitException {
         
         if (token == null || token.isBlank()) {
             token = GithubUtils.loadToken(configFileName);
         }
 
-        return GithubUtils.updateStatus(token, owner, repo, sha, state, targetUrl, description, context);
+        HttpResponse<String> response =  GithubUtils.updateStatus(token, owner, repo, sha, state, targetUrl, description, context);
+
+        int ciStatus = response.statusCode();
+        if (!(ciStatus == 200 || ciStatus == 201)) {
+            throw new GithubCommitException(ciStatus);
+        }
     }
 }

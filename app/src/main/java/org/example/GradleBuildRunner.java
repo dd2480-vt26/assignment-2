@@ -1,5 +1,7 @@
 package org.example;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -23,17 +25,17 @@ public class GradleBuildRunner {
      * @param repoDir local repository directory (already cloned and checked out)
      * @return build status
      */
-    public static BuildResult.Status run(Path repoDir) {
+    public static BuildResult run(Path repoDir) {
         if (repoDir == null) {
-            return BuildResult.Status.ERROR;
+            return new BuildResult(BuildResult.Status.ERROR);
         }
         if (!Files.isDirectory(repoDir)) {
-            return BuildResult.Status.ERROR;
+            return new BuildResult(BuildResult.Status.ERROR);
         }
 
         Path wrapperPath = resolveWrapperPath(repoDir);
         if (!Files.isRegularFile(wrapperPath)) {
-            return BuildResult.Status.ERROR;
+            return new BuildResult(BuildResult.Status.ERROR);
         }
 
         if (!IS_WINDOWS && !Files.isExecutable(wrapperPath)) {
@@ -45,7 +47,7 @@ public class GradleBuildRunner {
             command.add("cmd.exe");
             command.add("/c");
         }
-        command.add(wrapperPath.toString());
+        command.add(wrapperPath.toAbsolutePath().toString());
         command.add("build");
         command.add("-x");
         command.add("test");
@@ -57,29 +59,29 @@ public class GradleBuildRunner {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.directory(repoDir.toFile());
         builder.redirectErrorStream(true);
-        Path outputPath = repoDir.resolve("gradle-build-output.log");
-        builder.redirectOutput(outputPath.toFile());
-
         try {
             Process process = builder.start();
 
-            boolean finished = process.waitFor(BUILD_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-            if (!finished) {
-                process.destroyForcibly();
-                return BuildResult.Status.ERROR;
-            }
+            int exitCode = process.waitFor();
 
-            int exitCode = process.exitValue();
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+            
             if (exitCode != 0) {
-                return BuildResult.Status.FAILURE;
+                BuildResult result = new BuildResult(BuildResult.Status.FAILURE, output.toString());
+                return result;
             }
-
-            return BuildResult.Status.SUCCESS;
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            return BuildResult.Status.ERROR;
-        } catch (IOException ex) {
-            return BuildResult.Status.ERROR;
+            
+            BuildResult result = new BuildResult(BuildResult.Status.SUCCESS, output.toString());
+            return result;
+        } catch (IOException | InterruptedException ex) {
+            BuildResult result = new BuildResult(BuildResult.Status.ERROR);
+            return result;
         }
     }
 

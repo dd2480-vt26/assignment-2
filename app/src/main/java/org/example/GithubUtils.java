@@ -22,6 +22,8 @@ import java.util.Properties;
  */
 public class GithubUtils {
 
+    protected static final String BRANCH_PREFIX = "refs/heads/";
+
     /**
      * Represents the possible commit status states supported by the GitHub API.
      */
