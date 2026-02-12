@@ -22,6 +22,8 @@ import java.util.Properties;
  */
 public class GithubUtils {
 
+    protected static final String BRANCH_PREFIX = "refs/heads/";
+
     /**
      * Represents the possible commit status states supported by the GitHub API.
      */
@@ -117,6 +119,11 @@ public class GithubUtils {
                              throws IOException, InterruptedException {
 
         String jsonBody = buildJsonBody(state, targetUrl, description, context);
+
+        System.out.println("owner:" + owner);
+        System.out.println("repo:" + repo);
+        System.out.println("sha:" + sha);
+        System.out.println("jsonbody:" + jsonBody);
 
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = buildRequest(token, owner, repo, sha, jsonBody);
