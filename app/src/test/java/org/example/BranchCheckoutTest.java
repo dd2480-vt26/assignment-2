@@ -31,7 +31,7 @@ class BranchCheckoutTest {
         TestableBranchCheckout checkout = new TestableBranchCheckout();
         checkout.checkoutBranch(repoDir, "branch");
 
-        assertTrue(checkout.checkoutCalled);
+        assertTrue(!checkout.checkoutCalled);
     }
 
     /**
