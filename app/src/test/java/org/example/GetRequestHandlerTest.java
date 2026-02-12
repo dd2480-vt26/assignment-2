@@ -4,9 +4,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -56,10 +60,31 @@ public class GetRequestHandlerTest {
      */
     @Test
     void handle_requestAllBuilds_returnsListOfBuilds() throws IOException {
-        GetRequestHandler.handle("/custom-build-logs", response);
+        Path dir = Path.of("logs/dd2480-vt26/assignment-2");
+        Files.createDirectories(dir);
+        
+        Path filePath = dir.resolve("temp.json");
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write("""
+            {
+            "timestamp" : "2026-02-12T14:40:59.905714443+01:00",
+            "commitIdentifier" : "9d471bf817f2c0e4d189f76c593aa500619e0b21",
+            "buildStatus" : "SUCCESS",
+            "buildLog" : "abc",
+            "testStatus" : "SUCCESS",
+            "testLog" : "xyz"
+            }     
+        """);
+        writer.close();
+
+        GetRequestHandler.handle("/logs/dd2480-vt26/assignment-2/temp.json", response);
+        Files.delete(filePath);
+
         response.getWriter().flush();
         String htmlOutput = stringWriter.toString();
-        assertTrue(htmlOutput.contains("<h1>All Build Logs</h1>"));
+
+        assertTrue(htmlOutput.contains("<h2>Build</h2>"));
+        assertTrue(htmlOutput.contains("<h2>Test</h2>"));
     }
 
 }
