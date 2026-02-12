@@ -118,6 +118,11 @@ public class GithubUtils {
 
         String jsonBody = buildJsonBody(state, targetUrl, description, context);
 
+        System.out.println("owner:" + owner);
+        System.out.println("repo:" + repo);
+        System.out.println("sha:" + sha);
+        System.out.println("jsonbody:" + jsonBody);
+
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = buildRequest(token, owner, repo, sha, jsonBody);
 

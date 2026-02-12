@@ -94,6 +94,8 @@ public class HttpHandler extends AbstractHandler
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
         PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
 
+        // TODO: Set GH status: PENDING
+
         // --- Step 1. Clone the project ---
         RepoCloner cloner = new RepoCloner();
         String cloneUrl = payload.repository.clone_url;
@@ -112,13 +114,19 @@ public class HttpHandler extends AbstractHandler
         checkouter.checkoutBranch(REPO_DIR, branch);
 
         // --- Step 3: Build the project ---
-        GradleBuildRunner.run(REPO_DIR);
+        BuildResult.Status buildStatus = GradleBuildRunner.run(REPO_DIR);
+        // TODO: Set commit status
 
         // --- Step 4: Test the project ---
-        TestRunner.runTests(REPO_DIR.toFile());
+        BuildResult testResult = TestRunner.runTests(REPO_DIR.toFile());
+        // TODO: Set commit status
 
+        
+        
         // Bellow is just example usage and for testing
-        String repoName = payload.repository.full_name;
+        String[] strs = payload.repository.full_name.split("/");
+        String owner = strs[0];
+        String repoName = strs[1];
         String commitSha = payload.after;
 
         System.out.println("branch: " + branch);
@@ -126,20 +134,39 @@ public class HttpHandler extends AbstractHandler
         System.out.println("repository: " + repoName);
         System.out.println("commit sha: " + commitSha);
 
-        GithubUtils.CommitState status = GithubUtils.CommitState.FAILURE; // placeholder
-        String owner = repoName.split("/")[0];
-        String repo = repoName.split("/")[1];
-        String targetUrl = ""; // placeholder, should be URL to the build
-        String description = ""; // placeholder, optional description of the status
-        String context = ""; // placeholder, optional context name
+        // TODO: Unify CommitState and BuildResult.Status? Incorporate `testResult`?
+        GithubUtils.CommitState commitState;
 
-        HttpResponse<String> githubResponse = handleCommitStatus(owner, repo, commitSha, status, targetUrl, description, context);
+        switch (buildStatus) {
+            case BuildResult.Status.ERROR:
+                commitState = GithubUtils.CommitState.ERROR;
+                break;
+            case BuildResult.Status.FAILURE:
+                commitState = GithubUtils.CommitState.FAILURE;
+                break;
+            case BuildResult.Status.SUCCESS:
+                commitState = GithubUtils.CommitState.SUCCESS;
+                break;
+                default:
+                commitState = GithubUtils.CommitState.FAILURE;
+                break;
+        }
+
+        // String owner = repoName.split("/")[0];
+        // String repo = repoName.split("/")[1];
+        String targetUrl = "https://www.youtube.com";        // TODO: What url?
+        String description = "abc"; // placeholder, optional description of the status
+        String context = "xyz"; // placeholder, optional context name
+
+        HttpResponse<String> githubResponse = handleCommitStatus(owner, repoName, commitSha, commitState, targetUrl, description, context);
         int ci_status = githubResponse.statusCode();
         if(ci_status == 201) {
             System.out.println("CI job done");
         } else {
             System.out.println("CI job failed. Status: " + ci_status);
         }
+
+        // TODO: Delete cloned repo
     }
 
     /**
