@@ -1,3 +1,6 @@
+**Info to TA:**
+- The last few commits on branch "assessment" show that the CI server is working and has set the commit status for those commits.
+
 # Continuous Integration Server
 
 This program builds a continuous integration server.
@@ -119,6 +122,8 @@ etc
 - **Elias Gaghlasian:** Implemented RepoCloner, GradleBuildRunner, and corresponding tests; wrote README.
 - **Fabian Holm:** Implemented set up of template for project, PushPayload, BranchCheckout, and corresponding tests.
 - **Vadim El Guedj:** Implemented TestRunner, BuildResult, RepoCleanup and corresponding tests; wrote README.
+
+NOTE: Some classes and methods were merged before the final deadline, and do not exist anymore (such as `TestRunner` and `GradleBuildRunner`). But the work was made as specified above.
 
 Something that can be considered a valuable and remarkable achievement is that we have a dynamic workflow with GitHub issues, PR reviewing with protected main (not being able to directly push or merge to main), and Kanban board (notes, backlog, ready, in progress, in review, and done) to track our progress on each issue and avoid duplicate work and missunderstandings. This, in turn, allows us to work more efficiently, especially with the kanban board, a new addition to our workflow, which lets us more concretely see how it is going for each member and at which stage each issue is. We also have a structurally and correctly isolated file structure with individual checks in each class to avoid unnecessary clutter and confusion in the main. For a new collaborator or viewer, it will be an easy task to analyze, comprehend, and test each part of the simulated workflow individually without any difficulties. We also have a BuildResult class that compiles the information into one easy object that is viewable with all build logs, tests, etc. Therefore, the remarkability becomes our way of working, functioning, and organizing to, in turn, improve our workspace for current and future development.
 
