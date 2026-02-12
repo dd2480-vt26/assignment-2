@@ -30,7 +30,8 @@ import org.example.payload.PushPayload;
 public class HttpHandler extends AbstractHandler
 {
     private static final Path ALL_REPOS_DIR = Path.of("repos");
-    private static final Path ALL_BUILDS_DIR = Path.of("builds-archive");
+
+    private boolean handled;
 
     private String configFileName = "config.properties";
     private String token; // Personal access token for GitHub
@@ -50,9 +51,17 @@ public class HttpHandler extends AbstractHandler
                        HttpServletResponse response) 
         throws IOException
     {
+
+        // handled = false;
+
         response.setContentType("text/html;charset=utf-8");
         response.setStatus(HttpServletResponse.SC_OK);
         baseRequest.setHandled(true);
+
+        if (!request.getHeader("X-GitHub-Event").equals("push")) {
+            System.out.println("Got HTTP req but was not GitHub push");
+            return;
+        }
 
         switch (request.getMethod()) {
             case "PUT":
@@ -60,11 +69,13 @@ public class HttpHandler extends AbstractHandler
                 break;
 
             case "POST":
+                System.out.println("- - - - - - - - -  - POST START - - - - - - -");
                 try {
                     handlePOST(request);
                 } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
+                System.out.println("- - - - - - - - -  - POST DONE - - - - - - -");
                 break;
 
             case "GET":
@@ -74,6 +85,11 @@ public class HttpHandler extends AbstractHandler
             default:
                 break;
         }
+
+
+        // handled = true;
+
+        // System.out.println("HANDLE");
     }
  
     /**
@@ -103,6 +119,8 @@ public class HttpHandler extends AbstractHandler
         ObjectMapper mapper = new ObjectMapper(); // maps JSON structure to existing class
         PushPayload payload = mapper.readValue(jsonString, PushPayload.class); // maps the JSON to the class PushPayload
 
+        final Path logDir = Utils.ALL_BUILDS_DIR.resolve(payload.repository.full_name);
+
         // --- Step 0: Prepare Github comms ---
         String[] strs = payload.repository.full_name.split("/");
         String owner = strs[0];
@@ -112,6 +130,8 @@ public class HttpHandler extends AbstractHandler
         GithubUtils.CommitState commitState = GithubUtils.CommitState.PENDING;
 
         // --- Step 1. Clone the project ---
+
+        System.out.println("----------- HttpHandler: Clone --------------");
         RepoCloner cloner = new RepoCloner();
         String cloneUrl = payload.repository.clone_url;
         final Path REPO_DIR = ALL_REPOS_DIR.resolve(payload.repository.full_name);
@@ -122,13 +142,18 @@ public class HttpHandler extends AbstractHandler
         }
         Files.createDirectories(REPO_DIR);
         cloner.runGitClone(cloneUrl, REPO_DIR);
+        System.out.println("----------- HttpHandler: Clone DONE --------------");
 
         // --- Step 2: Check out affected branch ---
+
+        System.out.println("----------- HttpHandler: Checkout --------------");
         String branch = payload.ref.substring(GithubUtils.BRANCH_PREFIX.length());
         BranchCheckout checkouter = new BranchCheckout();
         checkouter.checkoutBranch(REPO_DIR, branch);
+        System.out.println("----------- HttpHandler: Checkout DONE --------------");
 
         // --- Step 2.5: Set commit state to PENDING ---
+        System.out.println("----------- HttpHandler: Set PENDING --------------");
         String description = "Done: Cloned and checked out affected branch.";
         try {
             handleCommitStatus(owner, repoName, commitSha, commitState, null, description, context);
@@ -137,86 +162,89 @@ public class HttpHandler extends AbstractHandler
             new RepoCleanup().deleteRepo(REPO_DIR);
             return;
         }
+        System.out.println("----------- HttpHandler: Set PENDING DONE --------------");
         
         // --- Step 3: Build the project ---
-        BuildResult buildResult = GradleBuildRunner.run(REPO_DIR);
+        System.out.println("----------- HttpHandler: Build --------------");
+        CmdResult buildResult = Utils.execGradleCommandInRepo(REPO_DIR, "build", "-x", "test", "--no-daemon");
 
         // Step 3.5: Update commit state description
+        String targetUrl = null;
         switch (buildResult.status) {
-            case BuildResult.Status.SUCCESS:
+            case CmdResult.Type.SUCCESS:
                 description = "Build succeeded";
                 break;
-            case BuildResult.Status.FAILURE:
+            case CmdResult.Type.FAILURE:
                 description = "Build failed";
                 commitState = GithubUtils.CommitState.FAILURE;
-
-                String timeNow = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-                Path outputDir = ALL_BUILDS_DIR.resolve(payload.repository.full_name);
-                Path outputPath = outputDir.resolve(timeNow + ".json");
-
-                Files.createDirectories(outputDir);
-
-                BufferedWriter writer = new BufferedWriter(new FileWriter(outputPath.toFile()));
-
-                // Create log and add info
-                ObjectMapper logMapper = new ObjectMapper();
-                ObjectNode jsonObject = logMapper.createObjectNode();
-
-                jsonObject.put("timestamp", timeNow);
-                jsonObject.put("status", buildResult.status.toString());
-                jsonObject.put("commitIdentifier", commitSha);
-                jsonObject.put("log", buildResult.log);
-
-                writer.write(jsonObject.toPrettyString());
-                writer.close();
+                CmdResult emptyTestResult = new CmdResult(CmdResult.Type.NON_EXISTENT);
+                Path filePath = Utils.saveLogToFile(logDir, buildResult, emptyTestResult, commitSha);
+                targetUrl = "http://localhost:" + Main.PORT + "/" + filePath.toString();
                 break;
 
-            case BuildResult.Status.ERROR:
+            case CmdResult.Type.ERROR:
                 description = "Build error (couldn't finish build)";
                 commitState = GithubUtils.CommitState.ERROR;
+                break;
+            default:
                 break;
         }
 
         try {
-            handleCommitStatus(owner, repoName, commitSha, commitState, null, description, context);
+            handleCommitStatus(owner, repoName, commitSha, commitState, targetUrl, description, context);
         } catch (GithubCommitException e) {
             System.out.println("CI job failed when setting status to " + commitState + ". Status: " + e.CI_STATUS + ". Stopping CI job.");
             new RepoCleanup().deleteRepo(REPO_DIR);
             return;
         }
 
-        if (buildResult.status != BuildResult.Status.SUCCESS) {
+        if (buildResult.status != CmdResult.Type.SUCCESS) {
             System.out.println("Build: Not success, returning.");
             return;
         }
+        System.out.println("----------- HttpHandler: Build DONE --------------");
         
         // --- Step 4: Test the project ---
-        BuildResult testResult = TestRunner.runTests(REPO_DIR.toFile());
+        System.out.println("----------- HttpHandler: Test --------------");
+        // CmdResult testResult = TestRunner.runTests(REPO_DIR.toFile());
+        CmdResult testResult = Utils.execGradleCommandInRepo(REPO_DIR, "test");
+
         switch (testResult.status) {
-            case BuildResult.Status.SUCCESS:
+            case CmdResult.Type.SUCCESS:
                 description = "All tests passed";
                 commitState = GithubUtils.CommitState.SUCCESS;
                 break;
-            case BuildResult.Status.FAILURE:
+            case CmdResult.Type.FAILURE:
                 description = "Test(s) failed";
                 commitState = GithubUtils.CommitState.FAILURE;
                 break;
-            case BuildResult.Status.ERROR:
+            case CmdResult.Type.ERROR:
                 description = "Test error (couldn't finish tests)";
                 commitState = GithubUtils.CommitState.ERROR;
                 break;
+            default:
+                break;
         }
+
+        if (testResult.status != CmdResult.Type.ERROR) {
+            Path filePath = Utils.saveLogToFile(logDir, buildResult, testResult, commitSha);
+            targetUrl = "http://localhost:" + Main.PORT + "/" + filePath.toString();
+        }
+
         try {
-            handleCommitStatus(owner, repoName, commitSha, commitState, null, description, context);
+            handleCommitStatus(owner, repoName, commitSha, commitState, targetUrl, description, context);
             System.out.println("CI job finished successfully");
         } catch (GithubCommitException e) {
             System.out.println("CI job failed when setting status to " + commitState + ". Status: " + e.CI_STATUS + ". Stopping CI job.");
             new RepoCleanup().deleteRepo(REPO_DIR);
             return;
         }
+        System.out.println("----------- HttpHandler: Test DONE --------------");
 
         // --- Delete cloned repo from disk and link to build log
+        System.out.println("----------- HttpHandler: Remove repo --------------");
         new RepoCleanup().deleteRepo(REPO_DIR);
+        System.out.println("----------- HttpHandler: Remove repo DONE --------------");
     }
 
     /**
