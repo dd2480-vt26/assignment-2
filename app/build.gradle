@@ -17,6 +17,14 @@ dependencies {
     // JUnit Jupiter for testing
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.0'
+
+    // Source: https://mvnrepository.com/artifact/org.mockito/mockito-core
+    // For creating a HttpServletResponse instance when testing
+    testImplementation 'org.mockito:mockito-core:5.21.0'
+
+    // Source: https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    // For escaping HTML characters in the build logs
+    implementation("org.apache.commons:commons-lang3:3.0")
 }
 
 java {
