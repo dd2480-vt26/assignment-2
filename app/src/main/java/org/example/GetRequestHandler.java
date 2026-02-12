@@ -100,7 +100,8 @@ public class GetRequestHandler {
             for (File file : files) {
                 if (file.isFile()) {
                     String fileNameEscaped = StringEscapeUtils.escapeHtml4(file.getName());
-                    sb.append("<li><a href=\"").append(fileNameEscaped).append("\">")
+                    String immediateParent = dir.getName(dir.getNameCount()-1).toString();
+                    sb.append("<li><a href=\"").append(immediateParent).append("/").append(fileNameEscaped).append("\">")
                         .append(fileNameEscaped)
                         .append("</a></li>");
                 }
