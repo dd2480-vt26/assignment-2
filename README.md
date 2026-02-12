@@ -35,7 +35,7 @@ https://ngrok.com/
 Run the command:
 
 ```
-ngrok http 8080
+ngrok http 8019
 ```
 Copy the generated URL (Forwarding) and go to GitHub:
 
@@ -78,7 +78,7 @@ To run the program (builds automatically if needed):
 
 ### Tests
 
-Tests are implemented using JUnit 5.
+Tests are implemented using JUnit 5. The unit tests are located in `app/src/test/java/org/example/`, and covers cloning, building, testing, etc.
 
 To run all tests:
 ```
@@ -99,10 +99,17 @@ The generated document can be found:
 
 ### Build and test logs history
 
-To find it:
-
+List all build files:
 ```
-TODO: ADD the link
+http://localhost:8019/logs/dd2480-vt26/assignment-2
+```
+
+List specifib build file (also available after listing all build files):
+```
+http://localhost:8019/logs/dd2480-vt26/assignment-2/2026-02-12T18:03:57.43653696+01:00.json
+http://localhost:8019/logs/dd2480-vt26/assignment-2/2026-02-12T18:04:53.776641063+01:00.json
+
+etc
 ```
 
 
